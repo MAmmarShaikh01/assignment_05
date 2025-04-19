@@ -4,7 +4,7 @@ from cryptography.fernet import Fernet
 import json
 import os
 
-# Setup encryption
+# Setup encryption key persistence
 KEY_FILE = "secret.key"
 
 def load_or_create_key():
@@ -34,9 +34,13 @@ def save_data(data):
 
 stored_data = load_data()
 
-# Session states
-failed_attempts = st.session_state.get("failed_attempts", 0)
-reauthorized = st.session_state.get("reauthorized", False)
+# Initialize session state
+if "failed_attempts" not in st.session_state:
+    st.session_state.failed_attempts = 0
+if "reauthorized" not in st.session_state:
+    st.session_state.reauthorized = False
+if "decrypted_data" not in st.session_state:
+    st.session_state.decrypted_data = ""
 
 # Hashing function
 def hash_passkey(passkey):
@@ -89,7 +93,7 @@ elif choice == "Store/Retrieve Data":
                 st.warning("Both data and passkey are required.")
 
     with tab2:
-        if failed_attempts >= 3 and not reauthorized:
+        if st.session_state.failed_attempts >= 3 and not st.session_state.reauthorized:
             st.warning("🔐 Too many failed attempts. Please login to reauthorize.")
         else:
             encrypted = st.text_area("Paste your encrypted data")
@@ -99,6 +103,7 @@ elif choice == "Store/Retrieve Data":
                 if encrypted and passkey:
                     result = decrypt_data(encrypted, passkey)
                     if result:
+                        st.session_state.decrypted_data = result
                         st.success("✅ Success! Here's your data:")
                         st.code(result)
                     else:
@@ -106,6 +111,9 @@ elif choice == "Store/Retrieve Data":
                         st.error(f"❌ Incorrect passkey. {remaining} attempts left.")
                 else:
                     st.warning("All fields must be filled.")
+
+            if st.session_state.decrypted_data:
+                st.text_area("Decrypted Data (editable)", value=st.session_state.decrypted_data, key="editable_output")
 
 elif choice == "Login":
     st.header("🔐 Login to Reauthorize")
